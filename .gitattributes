@@ -1,0 +1,24 @@
+* text=auto eol=lf
+
+# Enforce LF for executable shell scripts and related shell sources.
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+
+# Enforce LF for config, docs, and workflow files (prevents CRLF warnings
+# when core.autocrlf=true is set locally, e.g. in gitconfig-personal.txt)
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+.editorconfig text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Binary files should never be touched by line-ending normalization
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

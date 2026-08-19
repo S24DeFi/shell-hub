@@ -1,0 +1,50 @@
+#!/bin/sh
+# Shell Script Utilities - Template
+# Copy this to ~/.bashrc (or source it from there) and fill in your values
+# Run ./setup.sh for an interactive setup instead
+
+UserName="first.last"           # your username (e.g., john.doe)
+UserId="your-user-id"           # your org/employee ID (if applicable)
+JiraUserid="your-jira-id"       # your Jira account ID (if applicable)
+CodeId="your-github-username"   # your GitHub / CI platform username
+# Recommended: use an ASCII-only symlink such as "$HOME/alias-workspace" if your real path is in iCloud or contains smart quotes.
+Workspace="$HOME/alias-workspace" # absolute path to your workspace root
+Me="/Users/$UserName"           # your home directory
+BashShells="/absolute/path/to/this-repo" # path to this repo (symlinked path recommended)
+
+# Load helpers first (other scripts depend on its functions)
+if [ -f "$BashShells/scripts/helpers.sh" ]; then
+    source "$BashShells/scripts/helpers.sh"
+fi
+
+# Load all remaining .sh files from the scripts/ folder
+# Note: helpers.sh loads first (other scripts depend on it)
+# Note: hub.sh is an alternative entry point and is not auto-loaded by setup.sh
+if [ -n "$BASH_VERSION" ]; then
+    shopt -s nullglob
+    for f in "$BashShells/scripts"/*.sh; do
+        [ -f "$f" ] && [ "$(basename "$f")" != "helpers.sh" ] && [ "$(basename "$f")" != "hub.sh" ] && source "$f"
+    done
+    shopt -u nullglob
+elif [ -n "$ZSH_VERSION" ]; then
+    setopt NULL_GLOB
+    for f in "$BashShells/scripts"/*.sh; do
+        [ -f "$f" ] && [ "$(basename "$f")" != "helpers.sh" ] && [ "$(basename "$f")" != "hub.sh" ] && source "$f"
+    done
+    unsetopt NULL_GLOB
+else
+    for f in "$BashShells/scripts"/*.sh; do
+        [ -f "$f" ] && [ "$(basename "$f")" != "helpers.sh" ] && [ "$(basename "$f")" != "hub.sh" ] && source "$f"
+    done
+fi
+
+# Load contrib script if present
+if [ -f "$BashShells/scripts/contrib.txt" ]; then
+    alias contrib="bash $BashShells/scripts/contrib.txt"
+fi
+
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion

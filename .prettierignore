@@ -1,0 +1,12 @@
+# Prettier should only touch documentation — never shell scripts.
+*.sh
+scripts/**
+setup.sh
+validate.sh
+
+# Don't reformat generated/vendored content.
+.gitnexus/
+.claude/
+AGENTS.md
+CLAUDE.md
+.github/CODEOWNERS

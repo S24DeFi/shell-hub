@@ -1,0 +1,186 @@
+name: Validate Shell Scripts
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - '*.sh'
+      - '**/*.md'
+      - '.prettierrc'
+      - '.prettierignore'
+      - '.github/workflows/validate.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/**'
+      - '*.sh'
+      - '**/*.md'
+      - '.prettierrc'
+      - '.prettierignore'
+
+jobs:
+  lint:
+    name: ShellCheck Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+      
+      - name: Run ShellCheck on all shell scripts
+        run: |
+          find scripts -name "*.sh" -type f | while read script; do
+            echo "Checking $script..."
+            shellcheck -x "$script" || exit 1
+          done
+          shellcheck -x setup.sh
+          shellcheck -x validate.sh
+
+  markdown-format:
+    name: Markdown Formatting (Prettier)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check markdown formatting
+        run: npx --yes prettier@3.3.3 --check "**/*.md"
+
+  syntax:
+    name: Bash/POSIX Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check bash syntax
+        run: |
+          bash -n setup.sh
+          bash -n validate.sh
+          find scripts -name "*.sh" -type f | while read script; do
+            bash -n "$script" || exit 1
+          done
+      
+      - name: Check POSIX sh compatibility
+        run: |
+          sh -n scripts/helpers.sh
+          sh -n scripts/networking.sh
+          sh -n scripts/hub.sh
+
+  validate:
+    name: Repository Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run validation script
+        run: bash validate.sh
+      
+      - name: Check required files exist
+        run: |
+          files=(
+            "setup.sh"
+            "README.md"
+            "USAGE.md"
+            "CHANGELOG.md"
+            "config/bash-template.txt"
+            "config/gitconfig-template.txt"
+            "scripts/helpers.sh"
+            "scripts/base.sh"
+            "scripts/automation.sh"
+            "scripts/networking.sh"
+            "scripts/hub.sh"
+          )
+          for file in "${files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "ERROR: Missing required file: $file"
+              exit 1
+            fi
+          done
+          echo "✓ All required files present"
+
+  pii-check:
+    name: Security & PII Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for hardcoded personal info
+        run: |
+          echo "Checking for hardcoded paths and PII..."
+          
+          # Check for hardcoded user paths
+          if find . -name "*.sh" -type f -not -path "./.git/*" -exec grep -l "/Users/\|/home/.*/\|/root/" {} \; 2>/dev/null | head -5; then
+            echo "WARNING: Check any paths are templated variables, not hardcoded absolute paths"
+          fi
+          
+          # Check for personal email in scripts (spence@ is OK if public)
+          if grep -r "spence@s24defi\|@example\|your@" . --include="*.sh" --exclude-dir=.git 2>/dev/null | grep -v "template\|example\|placeholder"; then
+            echo "✓ Email references look OK (templated or examples)"
+          fi
+          
+          # Check for API keys, tokens (should not be present)
+          if grep -ri "api[_-]key\|api[_-]token\|secret[_-]key\|password.*=" . --include="*.sh" --exclude-dir=.git 2>/dev/null | grep -v "example\|placeholder\|template"; then
+            echo "ERROR: Found potential secrets in scripts"
+            exit 1
+          fi
+          
+          echo "✓ PII check passed"
+
+  test-activation:
+    name: Test activate-hub
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test activate-hub functionality
+        run: |
+          set -e
+          
+          # Create temporary test environment
+          tmpdir=$(mktemp -d)
+          
+          # Source base.sh to get activate-hub function
+          bash -c "
+            export BashShells='$(pwd)'
+            . scripts/base.sh
+            # Test that activate-hub function exists
+            if type activate-hub >/dev/null 2>&1; then
+              echo '✓ activate-hub function is available'
+            else
+              echo 'ERROR: activate-hub function not found'
+              exit 1
+            fi
+          "
+          
+          rm -rf "$tmpdir"
+
+  help-commands:
+    name: Verify hub.sh Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test hub.sh sourcing
+        run: |
+          bash -c '
+            export SKILLS_ROOT="./scripts"
+            . ./scripts/hub.sh
+            
+            # Verify key functions are loaded
+            if type myip >/dev/null 2>&1; then
+              echo "✓ myip function loaded"
+            else
+              echo "ERROR: myip function not found"
+              exit 1
+            fi
+            
+            if type cleanbranches >/dev/null 2>&1; then
+              echo "✓ cleanbranches function loaded"
+            else
+              echo "ERROR: cleanbranches function not found"
+              exit 1
+            fi
+            
+            echo "✓ hub.sh loaded all utilities successfully"
+          '

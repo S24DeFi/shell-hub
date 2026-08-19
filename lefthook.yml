@@ -1,0 +1,55 @@
+# Lefthook configuration for shell scripts
+# Install with: npm install -g @evilmartians/lefthook
+#            or: brew install lefthook
+# Then run: lefthook install
+
+# Fast checks on every commit: syntax + format check on staged .sh files
+pre-commit:
+  parallel: true
+  commands:
+    # Lint shell scripts with ShellCheck
+    shellcheck:
+      glob: '*.sh|scripts/*.sh'
+      run: shellcheck -x {staged_files}
+      fail_text: "ShellCheck failed! Fix shell issues before committing."
+    
+    # Check formatting (without modifying)
+    shfmt-check:
+      glob: '*.sh|scripts/*.sh'
+      run: shfmt -d {staged_files}
+      fail_text: "Shell formatting issues found! Run 'lefthook run' to auto-fix or see guide."
+    
+    # Check markdown formatting with Prettier (no local install required)
+    prettier-check:
+      glob: '**/*.md'
+      run: npx --yes prettier@3.3.3 --check {staged_files}
+      fail_text: "Markdown formatting issues found! Run 'npx prettier --write <file>' to auto-fix."
+
+    # Quick validation
+    validate:
+      run: bash validate.sh > /dev/null 2>&1
+      fail_text: "Validation failed! Run './validate.sh' to see issues."
+
+# Full validation before pushing: lint, format, validate all scripts
+pre-push:
+  parallel: true
+  commands:
+    # Full ShellCheck on all scripts
+    shellcheck-all:
+      run: find scripts -name "*.sh" -type f -exec shellcheck -x {} \; && shellcheck -x setup.sh validate.sh
+      fail_text: "ShellCheck failed! Fix shell issues before pushing."
+    
+    # Full format check
+    shfmt-check-all:
+      run: find scripts -name "*.sh" -type f -exec shfmt -d {} \; && shfmt -d setup.sh validate.sh
+      fail_text: "Shell formatting issues found! Run 'shfmt -i 2 -w scripts/*.sh' to auto-fix."
+    
+    # Full markdown formatting check
+    prettier-check-all:
+      run: npx --yes prettier@3.3.3 --check "**/*.md"
+      fail_text: "Markdown formatting issues found! Run 'npx prettier@3.3.3 --write \"**/*.md\"' to auto-fix."
+
+    # Full repository validation
+    validate-all:
+      run: bash validate.sh
+      fail_text: "Repository validation failed! Check output above."

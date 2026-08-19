@@ -1,0 +1,59 @@
+branch=$(git branch --show-current)
+if [ -z "$branch" ]; then
+  branch=$(git rev-parse --short HEAD)
+fi
+
+git log --pretty=format:'@@@%an|%cd|%s' --date=iso --numstat | awk -v branch="$branch" '
+BEGIN {
+  cutoff_date = "2025-01-01"
+}
+
+/^@@@/ {
+  line = substr($0, 4)
+  n = split(line, parts, "|")
+  author = parts[1]
+  raw_date = parts[2]
+  split(raw_date, dparts, " ")
+  date = dparts[1]  # YYYY-MM-DD
+  msg = parts[3]
+  for (i = 4; i <= n; i++) msg = msg "|" parts[i]
+  next
+}
+
+NF == 3 {
+  if (date >= cutoff_date) {
+    key = author SUBSEP date SUBSEP msg
+    added[key] += $1
+    deleted[key] += $2
+
+    # Track per-author totals
+    total_added[author] += $1
+    total_deleted[author] += $2
+  }
+}
+
+END {
+  # Output commit details
+  print "=== Commit Details ==="
+  for (key in added) {
+    split(key, arr, SUBSEP)
+    author = arr[1]
+    date = arr[2]
+    msg = arr[3]
+    total = added[key] + deleted[key]
+    printf "Branch: %s | Date: %s | Author: %s | Message: %s | +%d -%d = %d\n",
+           branch, date, author, msg, added[key], deleted[key], total
+  }
+
+  # Output author summary header
+  print "\n=== Summary by Author ==="
+  
+  # Create sortable output for authors
+  for (author in total_added) {
+    add = total_added[author]
+    del = total_deleted[author]
+    total = add + del
+    # Output to stderr so we can sort it separately
+    printf "%08d|Author: %s | Total: +%d -%d = %d\n", total, author, add, del, total > "/dev/stderr"
+  }
+}' 2>&1 | grep -E "^[0-9]{8}\|" | sort -nr | cut -d'|' -f2-
