@@ -3,6 +3,7 @@ personal.sh
 scripts/local.sh
 config/bash-config.txt
 config/gitconfig-personal.txt
+local/*
 
 # Emergency/temporary files
 emergency_fix.sh
